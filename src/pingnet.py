@@ -5,6 +5,7 @@ import subprocess
 import datetime
 import time
 import re
+import sys
 from sys import platform
 from threading import Thread
 if "darwin" in platform:
@@ -15,19 +16,22 @@ reachable_rtt = []                          #Empty list to collect reachable hos
 not_reachable = []                          #Empty list to collect unreachable hosts
 unknown_host = []                           #Empty list to collect Unknown hosts
 
-def ping_test (ip,ping_count):
-    
+def ping_test (ip,ping_count):  
     if "win32" in platform:                   #platform equals win32 for Windows, equals linux for Linux, darwin for Mac
         pattern = r"Average = (\d+\S+)"
         pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
         keyword = "Average"
         ping_test = subprocess.Popen(["ping", "-n", ping_count, ip], stdout = subprocess.PIPE,stderr = subprocess.PIPE)
-    else:                                   #Linux & Mac
+    elif "darwin" in platform:                 #Linux & Mac
         pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
         pattern_ip = r"\(\d+.\d+.\d+.\d+\)"
         keyword = "avg"
         ping_test = subprocess.Popen(["ping", "-t 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
-
+    else:
+        pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
+        pattern_ip = r"\(\d+.\d+.\d+.\d+\)"
+        keyword = "avg"
+        ping_test = subprocess.Popen(["ping", "-W 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     output = ping_test.communicate()[0]
     output_str = str(output)
     #print(output_str)
@@ -56,15 +60,17 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-f", "--file", nargs="?", action="store", help="specify text file that stores CIDR/hostname/IP")
-    group.add_argument("input", nargs="?", default=[], help= textwrap.dedent('''CIDR/hostname/IP
+    group.add_argument("address", nargs="?", default=[], help= textwrap.dedent('''CIDR/hostname/IP
 Example:
     192.168.1.0/24
     www.google.com
     8.8.8.8 '''))
     parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send")
     parser.add_argument("-w", "--write", action="store_true", help="write results to txt files")
-    args = parser.parse_args()
-    #print(args.input)
+    #args = parser.parse_args()
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
+    #print(args.address)
     #print(args.file)
     #print(args.count)
     #print(args.write)
@@ -103,19 +109,19 @@ Example:
                 th.start()
                 thread_list.append(th)
 
-    if args.input:
-        if "/" in args.input:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
-            if ipaddress.ip_network(args.input):  #validate if it's a CIDR network
-                for ip in ipaddress.IPv4Network(args.input,False): 
+    if args.address:
+        if "/" in args.address:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
+            if ipaddress.ip_network(args.address):  #validate if it's a CIDR network
+                for ip in ipaddress.IPv4Network(args.address,False): 
                     count += 1
                     th = Thread(target=ping_test, args=(str(ip),ping_count,))  
                     th.start()
                     thread_list.append(th)
         else:                             #Single IP address or hostname, instead of IP range
             count += 1
-            ping_test(args.input,ping_count)
+            ping_test(args.address,ping_count)
             '''
-            th = Thread(target=ping_test, args=(args.input,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
+            th = Thread(target=ping_test, args=(args.address,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
             th.start()
             thread_list.append(th)
             '''
