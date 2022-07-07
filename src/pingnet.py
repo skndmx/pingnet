@@ -96,18 +96,19 @@ Example:
     if args.file:                             #if argument -f is specified
         f = open(args.file,'r')               #open file
         for line in f:
-            IP = line.strip()
-            if "/" in IP:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
-                for ip in ipaddress.IPv4Network(IP,False): 
+            if line != "\n":
+                IP = line.strip()
+                if "/" in IP:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
+                    for ip in ipaddress.IPv4Network(IP,False): 
+                        count += 1
+                        th = Thread(target=ping_test, args=(str(ip),ping_count,))  
+                        th.start()
+                        thread_list.append(th)
+                else:                             #Single IP address or hostname, instead of IP range
                     count += 1
-                    th = Thread(target=ping_test, args=(str(ip),ping_count,))  
+                    th = Thread(target=ping_test, args=(IP,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
                     th.start()
                     thread_list.append(th)
-            else:                             #Single IP address or hostname, instead of IP range
-                count += 1
-                th = Thread(target=ping_test, args=(IP,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
-                th.start()
-                thread_list.append(th)
 
     if args.address:
         if "/" in args.address:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
