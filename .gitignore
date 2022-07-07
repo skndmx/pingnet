@@ -1,0 +1,5 @@
+/dist/*
+/build/*
+/env/*
+/pingnet.egg-info/*
+/src/pingnet.egg-info/*

@@ -62,10 +62,10 @@ def main():
     group.add_argument("-f", "--file", nargs="?", action="store", help="specify text file that stores CIDR/hostname/IP")
     group.add_argument("address", nargs="?", default=[], help= textwrap.dedent('''CIDR/hostname/IP
 Example:
-    192.168.1.0/24
-    www.google.com
-    8.8.8.8 '''))
-    parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send")
+    pingnet 192.168.1.0/24
+    pingnet www.google.com
+    pingnet 8.8.8.8 '''))
+    parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send, default 3")
     parser.add_argument("-w", "--write", action="store_true", help="write results to txt files")
     #args = parser.parse_args()
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -76,10 +76,10 @@ Example:
     #print(args.write)
     if args.count:                      #if -n is available, set count 
         ping_count=args.count[0]
-        print("Ping count is set to " + ping_count)
+        print("Ping count: " + ping_count)
     else:
         ping_count="3"                  #default ping count is set to 3
-        print("Default ping count is 3")
+        print("Default ping count: 3")
     
     if "darwin" in platform:            #set "ulimit -n" higher for Mac, to avoid "OSError: [Errno 24] Too many open files"
         target_procs=50000
