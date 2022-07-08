@@ -1,3 +1,9 @@
-8.8.8.8/30
+192.168.13.0/24
 kevinjin.com
 1.1.1.1
+ok.ok
+a.a
+bb.b
+ccc.c
+google.com
+8.8.8.8/30

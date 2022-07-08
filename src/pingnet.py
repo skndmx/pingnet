@@ -6,6 +6,7 @@ import datetime
 import time
 import re
 import sys
+from ipaddress import ip_address
 from sys import platform
 from threading import Thread
 if "darwin" in platform:
@@ -15,6 +16,13 @@ reachable = []                              #Empty list to collect reachable hos
 reachable_rtt = []                          #Empty list to collect reachable hosts + RTT
 not_reachable = []                          #Empty list to collect unreachable hosts
 unknown_host = []                           #Empty list to collect Unknown hosts
+
+def ipsorter(s):
+    try:
+        ip = int(ip_address(s))
+    except ValueError:
+        return (1, s)
+    return (0, ip)
 
 def ping_test (ip,ping_count):  
     if "win32" in platform:                   #platform equals win32 for Windows, equals linux for Linux, darwin for Mac
@@ -131,18 +139,21 @@ Example:
     time_elapsed = time.time() - start_time            #calculate elapsed time
     print("-------------------------------------------------------------------------------------")
     print("Test completed! (It took %.2f seconds to test %d addresses.)\n" % (time_elapsed,count))
-    print("Reachable:\n {} ".format((", ").join(reachable)))
-    print("Not reachable:\n {}".format((", ").join(not_reachable)))
-    print("Unknown host:\n {}".format((", ").join(unknown_host)))
+    reachable_sorted = sorted(reachable, key=ipsorter)
+    print("Reachable:\n {} ".format((", ").join(reachable_sorted)))
+    not_reachable_sorted = sorted(not_reachable, key=ipsorter)
+    print("Not reachable:\n {}".format((", ").join(not_reachable_sorted)))
+    unknown_host_sorted = sorted(unknown_host, key=ipsorter)
+    print("Unknown host:\n {}".format((", ").join(unknown_host_sorted)))
     if args.write:
         with open('%s-Reachable.txt' % date, 'w') as f:
-            for item in reachable:
+            for item in reachable_sorted:
                 f.write("%s\n" % item)
         with open('%s-Reachable_RTT.txt' % date, 'w') as f:
             for item in reachable_rtt:
                 f.write("%s\n" % item)
         with open('%s-Not_reachable.txt' % date, 'w') as f:
-            for item in not_reachable:
+            for item in not_reachable_sorted:
                 f.write("%s\n" % item)
         print("\nCheck txt files for complete results!")
 
