@@ -42,7 +42,7 @@ def ping_test (ip,ping_count):
         ping_test = subprocess.Popen(["ping", "-W 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     output = ping_test.communicate()[0]
     output_str = str(output)
-    #print(output_str)
+
     if keyword in output_str:                #If Average latency is available, it's reachable
         try:
             ipaddress.ip_address(ip)           #Check if it's an IP address
@@ -75,14 +75,10 @@ Example:
     pingnet 8.8.8.8 '''))
     parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send, default 3")
     parser.add_argument("-w", "--write", action="store_true", help="write results to txt files")
-    #args = parser.parse_args()
+    parser.add_argument("-V", "--version", action="version", version="%(prog)s 0.2.6")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
-    #print(args.address)
-    #print(args.file)
-    #print(args.count)
-    #print(args.write)
-    if args.count:                      #if -n is available, set count 
+    if args.count:                      #if there's -n argument, set count 
         ping_count=args.count[0]
         print("Ping count: " + ping_count)
     else:
@@ -145,7 +141,8 @@ Example:
     print("Not reachable:\n {}".format((", ").join(not_reachable_sorted)))
     unknown_host_sorted = sorted(unknown_host, key=ipsorter)
     print("Unknown host:\n {}".format((", ").join(unknown_host_sorted)))
-    if args.write:
+    
+    if args.write:                      #-w argument, export output as txt
         with open('%s-Reachable.txt' % date, 'w') as f:
             for item in reachable_sorted:
                 f.write("%s\n" % item)
