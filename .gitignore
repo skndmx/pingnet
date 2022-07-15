@@ -3,3 +3,4 @@
 /env/*
 /pingnet.egg-info/*
 /src/pingnet.egg-info/*
+/src/test.py

@@ -6,6 +6,7 @@ import datetime
 import time
 import re
 import sys
+from __init__ import __version__ as version
 from ipaddress import ip_address
 from sys import platform
 from threading import Thread
@@ -13,7 +14,7 @@ if "darwin" in platform:
      import resource # pylint: disable=import-error
 
 reachable = []                              #Empty list to collect reachable hosts
-reachable_rtt = []                          #Empty list to collect reachable hosts + RTT
+reachable_avg = []                          #Empty list to collect reachable hosts + RTT
 not_reachable = []                          #Empty list to collect unreachable hosts
 unknown_host = []                           #Empty list to collect Unknown hosts
 
@@ -28,15 +29,18 @@ def ping_test (ip,ping_count):
     if "win32" in platform:                   #platform equals win32 for Windows, equals linux for Linux, darwin for Mac
         pattern = r"Average = (\d+\S+)"
         pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
+        pattern_all = r"Minimum = (\d+\S+), Maximum = (\d+\S+), Average = (\d+\S+)"
         keyword = "Average"
         ping_test = subprocess.Popen(["ping", "-n", ping_count, ip], stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     elif "darwin" in platform:                 #Linux & Mac
         pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
+        pattern_all = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
         pattern_ip = r"\(\d+.\d+.\d+.\d+\)"
         keyword = "avg"
         ping_test = subprocess.Popen(["ping", "-t 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     else:
         pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
+        pattern_all = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
         pattern_ip = r"\(\d+.\d+.\d+.\d+\)"
         keyword = "avg"
         ping_test = subprocess.Popen(["ping", "-W 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
@@ -49,16 +53,20 @@ def ping_test (ip,ping_count):
             type = "ip"
         except ValueError:                      
             type = "hostname"
-        rtt = re.findall(pattern, output.decode())[0]   #Regex to find latency
+        avg = re.findall(pattern, output.decode())[0]   #Regex to find latency
+        rtt = re.findall(pattern_all, output.decode())[0]
+        
         if "linux" in platform or "darwin" in platform:                 
-            rtt = rtt+"ms"
+            rtt_i = [0, 2, 1]
+            rtt = [rtt[i]+"ms" for i in rtt_i]               #reorder to min/max/avg for linux&mac
+            avg = avg+"ms"
         if type == "ip":
-            print("IP: {0:56} Average RTT: {1}".format(ip, rtt))
+            print("IP: {0:49} {1:>9}  {2:>9}  {3:>9}".format(ip, rtt[0],rtt[1],rtt[2]))
         else:                                   
             ipadd = re.findall(pattern_ip,output.decode())[0]       #if type is hostname, add resolved IP address
-            print("Hostname: {0:50} Average RTT: {1}".format(ip+" "+ipadd,rtt))
+            print("Host: {0:47} {1:>9}  {2:>9}  {3:>9}".format(ip+" "+ipadd,rtt[0],rtt[1],rtt[2]))
         reachable.append(ip)
-        reachable_rtt.append("{0:41} RTT:{1}".format(ip, rtt))
+        reachable_avg.append("{0:41} RTT:{1}".format(ip, avg))
     elif "could not find host" in output_str or "nknown host" in output_str or "not known" in output_str:
         unknown_host.append(ip)
     else:
@@ -75,24 +83,21 @@ Example:
     pingnet 8.8.8.8 '''))
     parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send, default 3")
     parser.add_argument("-w", "--write", action="store_true", help="write results to txt files")
-    parser.add_argument("-V", "--version", action="version", version="%(prog)s 0.2.6")
+    parser.add_argument("-V", "--version", action="version", version="%(prog)s "+version)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
-
-    if args.count:                      #if there's -n argument, set count 
-        ping_count=args.count[0]
-        print("Ping count: " + ping_count)
-    else:
-        ping_count="3"                  #default ping count is set to 3
-        print("Default ping count: 3")
-    
+    ping_count = args.count if args.count else "3" 
+    print("\n"+" "*34+"PingNet ["+version+"]")
     if "darwin" in platform:            #set "ulimit -n" higher for Mac, to avoid "OSError: [Errno 24] Too many open files"
         target_procs=50000
         cur_proc, max_proc=resource.getrlimit(resource.RLIMIT_NOFILE)
         target_proc = min(max_proc,target_procs)
         resource.setrlimit(resource.RLIMIT_NOFILE, (max(cur_proc,target_proc),max_proc))
     date = datetime.date.today()
+    now = datetime.datetime.now()
+    
+    print("Ping count: {0:54}{1}".format(ping_count,now.strftime("%Y/%m/%d %H:%M:%S")),end="")
     start_time = time.time()                 
-    print("\nHostname/IP Address {0:40} Average Round Trip Times {1}".format("",""))
+    print("\nIP/Host {0:51} Min        Max        Avg {1}".format("",""))
     print("-------------------------------------------------------------------------------------")
     thread_list = []                        
     count = 0                              #total address count
@@ -147,7 +152,7 @@ Example:
             for item in reachable_sorted:
                 f.write("%s\n" % item)
         with open('%s-Reachable_RTT.txt' % date, 'w') as f:
-            for item in reachable_rtt:
+            for item in reachable_avg:
                 f.write("%s\n" % item)
         with open('%s-Not_reachable.txt' % date, 'w') as f:
             for item in not_reachable_sorted:
