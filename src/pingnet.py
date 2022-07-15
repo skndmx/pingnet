@@ -12,11 +12,24 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.1"
-reachable = []                              #Empty list to collect reachable hosts
-reachable_avg = []                          #Empty list to collect reachable hosts + RTT
-not_reachable = []                          #Empty list to collect unreachable hosts
-unknown_host = []                           #Empty list to collect Unknown hosts
+version = "0.3.2"
+alive = []                              #Empty list to collect reachable hosts
+alive_avg = []                          #Empty list to collect reachable hosts + RTT
+dead = []                          #Empty list to collect unreachable hosts
+unknown = []                           #Empty list to collect Unknown hosts
+
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   GRAY = '\033[90m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
 
 def ipsorter(s):
     try:
@@ -29,18 +42,18 @@ def ping_test (ip,ping_count):
     if "win32" in platform:                   #platform equals win32 for Windows, equals linux for Linux, darwin for Mac
         pattern = r"Average = (\d+\S+)"
         pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
-        pattern_all = r"Minimum = (\d+\S+), Maximum = (\d+\S+), Average = (\d+\S+)"
+        pattern_rtt = r"Minimum = (\d+\S+), Maximum = (\d+\S+), Average = (\d+\S+)"
         keyword = "Average"
         ping_test = subprocess.Popen(["ping", "-n", ping_count, ip], stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     elif "darwin" in platform:                 #Linux & Mac
         pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
-        pattern_all = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
+        pattern_rtt = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
         pattern_ip = r"\(\d+.\d+.\d+.\d+\)"
         keyword = "avg"
         ping_test = subprocess.Popen(["ping", "-t 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     else:
         pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
-        pattern_all = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
+        pattern_rtt = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
         pattern_ip = r"\(\d+.\d+.\d+.\d+\)"
         keyword = "avg"
         ping_test = subprocess.Popen(["ping", "-W 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
@@ -54,7 +67,7 @@ def ping_test (ip,ping_count):
         except ValueError:                      
             type = "hostname"
         avg = re.findall(pattern, output.decode())[0]   #Regex to find latency
-        rtt = re.findall(pattern_all, output.decode())[0]
+        rtt = re.findall(pattern_rtt, output.decode())[0]
         
         if "linux" in platform or "darwin" in platform:                 
             rtt_i = [0, 2, 1]
@@ -65,12 +78,12 @@ def ping_test (ip,ping_count):
         else:                                   
             ipadd = re.findall(pattern_ip,output.decode())[0]       #if type is hostname, add resolved IP address
             print("Host: {0:47} {1:>9}  {2:>9}  {3:>9}".format(ip+" "+ipadd,rtt[0],rtt[1],rtt[2]))
-        reachable.append(ip)
-        reachable_avg.append("{0:41} RTT:{1}".format(ip, avg))
+        alive.append(ip)
+        alive_avg.append("{0:41} RTT:{1}".format(ip, avg))
     elif "could not find host" in output_str or "nknown host" in output_str or "not known" in output_str:
-        unknown_host.append(ip)
+        unknown.append(ip)
     else:
-        not_reachable.append(ip)            #Else, it's not reachable
+        dead.append(ip)            #Else, it's not reachable
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
@@ -86,7 +99,7 @@ Example:
     parser.add_argument("-V", "--version", action="version", version="%(prog)s "+version)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     ping_count = args.count if args.count else "3" 
-    print("\n"+" "*34+"PingNet ["+version+"]")
+    print(color.BOLD + "\n"+" "*34+"PingNet [v"+version+"]" + color.END)
     if "darwin" in platform:            #set "ulimit -n" higher for Mac, to avoid "OSError: [Errno 24] Too many open files"
         target_procs=50000
         cur_proc, max_proc=resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -95,12 +108,12 @@ Example:
     date = datetime.date.today()
     now = datetime.datetime.now()
     
-    print("Ping count: {0:54}{1}".format(ping_count,now.strftime("%Y/%m/%d %H:%M:%S")),end="")
+    print("Number of ping requests: {0:41}{1}".format(ping_count,now.strftime("%Y/%m/%d %H:%M:%S")),end="")
     start_time = time.time()                 
     print("\nIP/Host {0:51} Min        Max        Avg {1}".format("",""))
     print("-------------------------------------------------------------------------------------")
     thread_list = []                        
-    count = 0                              #total address count
+    totalAddress = 0                              #total address count
 
     if args.file:                             #if argument -f is specified
         f = open(args.file,'r')               #open file
@@ -109,12 +122,12 @@ Example:
                 IP = line.strip()
                 if "/" in IP:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
                     for ip in ipaddress.IPv4Network(IP,False): 
-                        count += 1
+                        totalAddress += 1
                         th = Thread(target=ping_test, args=(str(ip),ping_count,))  
                         th.start()
                         thread_list.append(th)
                 else:                             #Single IP address or hostname, instead of IP range
-                    count += 1
+                    totalAddress += 1
                     th = Thread(target=ping_test, args=(IP,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
                     th.start()
                     thread_list.append(th)
@@ -123,12 +136,12 @@ Example:
         if "/" in args.address:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
             if ipaddress.ip_network(args.address):  #validate if it's a CIDR network
                 for ip in ipaddress.IPv4Network(args.address,False): 
-                    count += 1
+                    totalAddress += 1
                     th = Thread(target=ping_test, args=(str(ip),ping_count,))  
                     th.start()
                     thread_list.append(th)
         else:                             #Single IP address or hostname, instead of IP range
-            count += 1
+            totalAddress += 1
             ping_test(args.address,ping_count)
             '''
             th = Thread(target=ping_test, args=(args.address,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
@@ -139,25 +152,25 @@ Example:
         th.join()
     time_elapsed = time.time() - start_time            #calculate elapsed time
     print("-------------------------------------------------------------------------------------")
-    print("Test completed! (It took %.2f seconds to test %d addresses.)\n" % (time_elapsed,count))
-    reachable_sorted = sorted(reachable, key=ipsorter)
-    print("Reachable:\n {} ".format((", ").join(reachable_sorted)))
-    not_reachable_sorted = sorted(not_reachable, key=ipsorter)
-    print("Not reachable:\n {}".format((", ").join(not_reachable_sorted)))
-    unknown_host_sorted = sorted(unknown_host, key=ipsorter)
-    print("Unknown host:\n {}".format((", ").join(unknown_host_sorted)))
+    print("{0:55} Time elapsed:{1:>8.2f} seconds\n".format("Number of total addresses: "+str(totalAddress),time_elapsed))
+    alive_sorted = sorted(alive, key=ipsorter)
+    print("Alive: [{}]\n {} ".format(len(alive),(", ").join(alive_sorted)))
+    dead_sorted = sorted(dead, key=ipsorter)
+    print("Dead: [{}]\n {}".format(len(dead),(", ").join(dead_sorted)))
+    unknown_sorted = sorted(unknown, key=ipsorter)
+    print("Unknown: [{}]\n {}".format(len(unknown),(", ").join(unknown_sorted)))
     
     if args.write:                      #-w argument, export output as txt
-        with open('%s-Reachable.txt' % date, 'w') as f:
-            for item in reachable_sorted:
+        with open('%s-Alive.txt' % date, 'w') as f:
+            for item in alive_sorted:
                 f.write("%s\n" % item)
-        with open('%s-Reachable_RTT.txt' % date, 'w') as f:
-            for item in reachable_avg:
+        with open('%s-Alive_RTT.txt' % date, 'w') as f:
+            for item in alive_avg:
                 f.write("%s\n" % item)
-        with open('%s-Not_reachable.txt' % date, 'w') as f:
-            for item in not_reachable_sorted:
+        with open('%s-Dead.txt' % date, 'w') as f:
+            for item in dead_sorted:
                 f.write("%s\n" % item)
-        print("\nCheck txt files for complete results!")
+        print("\nCheck output files for complete results!")
 
 if __name__ == "__main__":
     main()
