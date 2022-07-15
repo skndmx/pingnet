@@ -6,13 +6,13 @@ import datetime
 import time
 import re
 import sys
-from __init__ import __version__ as version
 from ipaddress import ip_address
 from sys import platform
 from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
+version = "0.3.0"
 reachable = []                              #Empty list to collect reachable hosts
 reachable_avg = []                          #Empty list to collect reachable hosts + RTT
 not_reachable = []                          #Empty list to collect unreachable hosts
