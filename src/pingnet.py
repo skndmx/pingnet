@@ -12,7 +12,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.0"
+version = "0.3.1"
 reachable = []                              #Empty list to collect reachable hosts
 reachable_avg = []                          #Empty list to collect reachable hosts + RTT
 not_reachable = []                          #Empty list to collect unreachable hosts
