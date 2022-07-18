@@ -97,7 +97,7 @@ Unknown: [1]
 ```
 `-w` argument exports three txt files storing results.
 ```
-2022-07-15-Alive.txt
-2022-07-07-Alive_RTT.txt
-2022-07-07-Dead.txt
+2022-07-18-Alive.txt
+2022-07-18-Alive_RTT.txt
+2022-07-18-Dead.txt
 ```
