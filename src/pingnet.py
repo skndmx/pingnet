@@ -12,7 +12,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.3"
+version = "0.3.4"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -69,7 +69,7 @@ def ping_test (ip,ping_count):
         avg = re.findall(pattern, output.decode())[0]   #Regex to find latency
         rtt = re.findall(pattern_rtt, output.decode())[0]
         
-        if "linux" in platform or "darwin" in platform:                 
+        if "linux" in platform or "darwin" in platform:              
             rtt_i = [0, 2, 1]
             rtt = [rtt[i]+"ms" for i in rtt_i]               #reorder to min/max/avg for linux&mac
             avg = avg+"ms"
@@ -80,7 +80,7 @@ def ping_test (ip,ping_count):
             print("Host: {0:47} {1:>9}  {2:>9}  {3:>9}".format(ip+" "+ipadd,rtt[0],rtt[1],rtt[2]))
         alive.append(ip)
         alive_avg.append("{0:41} RTT:{1}".format(ip, avg))
-    elif "could not find host" in output_str or "nknown host" in output_str or "not known" in output_str:
+    elif "could not find host" in output_str or "nknown host" in output_str or "not known" in output_str:      #unknown hosts
         unknown.append(ip)
     else:
         dead.append(ip)            #Else, it's not reachable
@@ -118,8 +118,8 @@ Example:
     if args.file:                             #if argument -f is specified
         f = open(args.file,'r')               #open file
         for line in f:
-            if line != "\n":
-                IP = line.strip()
+            if line != "\n" and not line.startswith("#"):      #if line is empty, or starts with #, ignore it.
+                IP = line.strip().split("#",1)[0].rstrip()     #remove /n, split and delete after #, remove trailing white spaces with rstrip()
                 if "/" in IP:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
                     for ip in ipaddress.IPv4Network(IP,False): 
                         totalAddress += 1
@@ -137,28 +137,24 @@ Example:
             if ipaddress.ip_network(args.address):  #validate if it's a CIDR network
                 for ip in ipaddress.IPv4Network(args.address,False): 
                     totalAddress += 1
-                    th = Thread(target=ping_test, args=(str(ip),ping_count,))  
+                    th = Thread(target=ping_test, args=(str(ip),ping_count,))  #multi-thread
                     th.start()
                     thread_list.append(th)
         else:                             #Single IP address or hostname, instead of IP range
             totalAddress += 1
             ping_test(args.address,ping_count)
-            '''
-            th = Thread(target=ping_test, args=(args.address,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
-            th.start()
-            thread_list.append(th)
-            '''
+
     for th in thread_list:
         th.join()
     time_elapsed = time.time() - start_time            #calculate elapsed time
     print("-------------------------------------------------------------------------------------")
     print("{0:55} Time elapsed:{1:>8.2f} seconds\n".format("Number of total addresses: "+str(totalAddress),time_elapsed))
     alive_sorted = sorted(alive, key=ipsorter)
-    print("Alive: [{}]\n {} ".format(len(alive),(", ").join(alive_sorted)))
+    print(color.BOLD+color.UNDERLINE+"Alive:"+color.END+" [{}]\n {} ".format(len(alive),(", ").join(alive_sorted)))
     dead_sorted = sorted(dead, key=ipsorter)
-    print("Dead: [{}]\n {}".format(len(dead),(", ").join(dead_sorted)))
+    print(color.BOLD+color.UNDERLINE+"Dead:"+color.END+" [{}]\n {}".format(len(dead),(", ").join(dead_sorted)))
     unknown_sorted = sorted(unknown, key=ipsorter)
-    print("Unknown: [{}]\n {}".format(len(unknown),(", ").join(unknown_sorted)))
+    print(color.BOLD+color.UNDERLINE+"Unknown:"+color.END+" [{}]\n {}".format(len(unknown),(", ").join(unknown_sorted)))
     
     if args.write:                      #-w argument, export output as txt
         with open('%s-Alive.txt' % date, 'w') as f:

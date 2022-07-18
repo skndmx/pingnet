@@ -1,9 +1,7 @@
 192.168.13.0/24
-kevinjin.com
-1.1.1.1
-ok.ok
-a.a
-bb.b
-ccc.c
+kevinjin.com        #myblog
+1.1.1.1             #Cloudflare DNS
+invalid.address
 google.com
+#8.8.4.4
 8.8.8.8/30
