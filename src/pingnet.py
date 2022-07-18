@@ -12,7 +12,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.4"
+version = "0.3.5"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -99,7 +99,7 @@ Example:
     parser.add_argument("-V", "--version", action="version", version="%(prog)s "+version)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     ping_count = args.count if args.count else "3" 
-    print(color.BOLD + "\n"+" "*34+"PingNet [v"+version+"]" + color.END)
+    print("\n"+" "*34+color.BOLD + "PingNet [v"+version+"]" + color.END)
     if "darwin" in platform:            #set "ulimit -n" higher for Mac, to avoid "OSError: [Errno 24] Too many open files"
         target_procs=50000
         cur_proc, max_proc=resource.getrlimit(resource.RLIMIT_NOFILE)
