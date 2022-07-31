@@ -14,7 +14,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.6"
+version = "0.3.7"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -72,8 +72,8 @@ def ping_test (ip,ping_count):
         ping_test = subprocess.Popen(["ping", "-W 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     output = ping_test.communicate()[0]
     output_str = str(output)
-    #if "Chinese" in locale.getlocale()[0]:
-    #    output_str = s
+    if "Chinese" in locale.getlocale()[0]:
+        output_str = s
     if keyword in output_str:                #If Average latency is available, it's reachable
         try:
             ipaddress.ip_address(ip)           #Check if it's an IP address
