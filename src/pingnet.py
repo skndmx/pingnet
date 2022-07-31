@@ -5,18 +5,22 @@ import subprocess
 import datetime
 import time
 import re
+import locale
 import sys
+import os
 from ipaddress import ip_address
 from sys import platform
 from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.5"
+version = "0.3.6"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
 unknown = []                           #Empty list to collect Unknown hosts
+
+os.system("")
 
 class color:
    PURPLE = '\033[95m'
@@ -38,13 +42,22 @@ def ipsorter(s):
         return (1, s)
     return (0, ip)
 
-def ping_test (ip,ping_count):  
+def ping_test (ip,ping_count):
     if "win32" in platform:                   #platform equals win32 for Windows, equals linux for Linux, darwin for Mac
-        pattern = r"Average = (\d+\S+)"
-        pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
-        pattern_rtt = r"Minimum = (\d+\S+), Maximum = (\d+\S+), Average = (\d+\S+)"
-        keyword = "Average"
-        ping_test = subprocess.Popen(["ping", "-n", ping_count, ip], stdout = subprocess.PIPE,stderr = subprocess.PIPE)
+        if "Chinese" in locale.getlocale()[0]:
+            pattern = r"平均 = (\d+\S+)"
+            pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
+            pattern_rtt = r"最短 = (\d+ms).+最长 = (\d+ms).+平均 = (\d+ms)"
+            keyword = "平均"
+            ping_test = subprocess.Popen(["ping", "-n", ping_count, ip], stdout = subprocess.PIPE,stderr = subprocess.PIPE,encoding='cp936')
+            origin_strs = ping_test.stdout.read() # 得到的是 bytes ====》 b'字符串内容'
+            s = str(origin_strs)  # --> bytes 2 string
+        else:
+            pattern = r"Average = (\d+\S+)"
+            pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
+            pattern_rtt = r"Minimum = (\d+ms), Maximum = (\d+ms), Average = (\d+ms)"
+            keyword = "Average"
+            ping_test = subprocess.Popen(["ping", "-n", ping_count, ip], stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     elif "darwin" in platform:                 #Linux & Mac
         pattern = r"= \d+\.\d+/(\d+\.\d+)/\d+\.\d+/\d+\.\d+ ms"
         pattern_rtt = r"= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/\d+\.\d+ ms"
@@ -59,15 +72,16 @@ def ping_test (ip,ping_count):
         ping_test = subprocess.Popen(["ping", "-W 4","-c", ping_count, ip], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
     output = ping_test.communicate()[0]
     output_str = str(output)
-
+    #if "Chinese" in locale.getlocale()[0]:
+    #    output_str = s
     if keyword in output_str:                #If Average latency is available, it's reachable
         try:
             ipaddress.ip_address(ip)           #Check if it's an IP address
             type = "ip"
         except ValueError:                      
             type = "hostname"
-        avg = re.findall(pattern, output.decode())[0]   #Regex to find latency
-        rtt = re.findall(pattern_rtt, output.decode())[0]
+        avg = re.findall(pattern, output_str)[0]   #Regex to find latency
+        rtt = re.findall(pattern_rtt, output_str)[0]
         
         if "linux" in platform or "darwin" in platform:              
             rtt_i = [0, 2, 1]
