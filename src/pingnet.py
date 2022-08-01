@@ -14,7 +14,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.3.7"
+version = "0.3.8"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -44,7 +44,7 @@ def ipsorter(s):
 
 def ping_test (ip,ping_count):
     if "win32" in platform:                   #platform equals win32 for Windows, equals linux for Linux, darwin for Mac
-        if "Chinese" in locale.getlocale()[0]:
+        if locale.getdefaultlocale()[1] == 'cp936' :
             pattern = r"平均 = (\d+\S+)"
             pattern_ip = r"\[\d+.\d+.\d+.\d+\]"
             pattern_rtt = r"最短 = (\d+ms).+最长 = (\d+ms).+平均 = (\d+ms)"
