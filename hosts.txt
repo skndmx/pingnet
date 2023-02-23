@@ -4,4 +4,3 @@ kevinjin.com        #myblog
 invalid.address
 google.com
 #8.8.4.4
-8.8.8.8/30

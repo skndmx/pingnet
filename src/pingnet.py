@@ -10,11 +10,12 @@ import sys
 import os
 from ipaddress import ip_address
 from sys import platform
+import concurrent.futures
 from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.4.1"
+version = "0.4.2"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -110,7 +111,7 @@ Example:
     pingnet 8.8.8.8 '''))
     parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send, default 3")
     parser.add_argument("-w", "--write", action="store_true", help="write results to txt files")
-    parser.add_argument("-V", "--version", action="version", version="%(prog)s "+version)
+    parser.add_argument("-V", "--version", action="version", version="PingNet "+version)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     ping_count = args.count if args.count else "3" 
     print("\n"+" "*34+color.BOLD + "PingNet [v"+version+"]" + color.END)
@@ -119,6 +120,10 @@ Example:
         cur_proc, max_proc=resource.getrlimit(resource.RLIMIT_NOFILE)
         target_proc = min(max_proc,target_procs)
         resource.setrlimit(resource.RLIMIT_NOFILE, (max(cur_proc,target_proc),max_proc))
+
+    if "win32" in platform:
+        import ctypes
+        ctypes.windll.msvcrt._setmaxstdio(2048)
     date = datetime.date.today()
     now = datetime.datetime.now()
     
@@ -130,36 +135,47 @@ Example:
     totalAddress = 0                              #total address count
 
     if args.file:                             #if argument -f is specified
-        f = open(args.file,'r')               #open file
-        for line in f:
-            if line != "\n" and not line.startswith("#"):      #if line is empty, or starts with #, ignore it.
-                IP = line.strip().split("#",1)[0].rstrip()     #remove /n, split and delete after #, remove trailing white spaces with rstrip()
-                if "/" in IP:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
-                    for ip in ipaddress.IPv4Network(IP,False): 
+        f = open(args.file, 'r')  # open file
+        thread_list = []
+        max_threads = 1024
+        def ping_all(ip_address):
+            ping_test(str(ip_address), ping_count)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+            for line in f:
+                if line != "\n" and not line.startswith("#"):
+                    IP = line.strip().split("#", 1)[0].rstrip()
+                    if "/" in IP:
+                        for ip in ipaddress.IPv4Network(IP, False):
+                            totalAddress += 1
+                            thread_list.append(executor.submit(ping_all, str(ip)))
+                    else:
                         totalAddress += 1
-                        th = Thread(target=ping_test, args=(str(ip),ping_count,))  
-                        th.start()
-                        thread_list.append(th)
-                else:                             #Single IP address or hostname, instead of IP range
-                    totalAddress += 1
-                    th = Thread(target=ping_test, args=(IP,ping_count,))   #args should be tuple, need extra comma when passing only 1 param
-                    th.start()
-                    thread_list.append(th)
+                        thread_list.append(executor.submit(ping_all, IP))
+        for th in concurrent.futures.as_completed(thread_list):
+            th.result()
 
     if args.address:
         if "/" in args.address:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
             if ipaddress.ip_network(args.address):  #validate if it's a CIDR network
-                for ip in ipaddress.IPv4Network(args.address,False): 
+
+                totalAddress = 0
+                max_threads = 1024  # Set maximum number of threads to 10
+                ip_list = []
+
+                for ip in ipaddress.IPv4Network(args.address, False):
+                    ip_list.append(str(ip))
                     totalAddress += 1
-                    th = Thread(target=ping_test, args=(str(ip),ping_count,))  #multi-thread
-                    th.start()
-                    thread_list.append(th)
+
+                def ping_test_wrapper(ip_address):
+                    ping_test(ip_address, ping_count)
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+                    executor.map(ping_test_wrapper, ip_list)
         else:                             #Single IP address or hostname, instead of IP range
             totalAddress += 1
             ping_test(args.address,ping_count)
 
-    for th in thread_list:
-        th.join()
     time_elapsed = time.time() - start_time            #calculate elapsed time
     print("-------------------------------------------------------------------------------------")
     print("{0:55} Time elapsed:{1:>8.2f} seconds\n".format("Number of total addresses: "+str(totalAddress),time_elapsed))
