@@ -15,7 +15,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.4.3"
+version = "0.4.4"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -156,14 +156,15 @@ Example:
             th.result()
 
     if args.address:
-        if "/" in args.address:                     #If Address has subnet mask symbol(/), eg: 192.168.1.0/30
-            if ipaddress.ip_network(args.address):  #validate if it's a CIDR network
+        if "/" in args.address:  # If Address has subnet mask symbol(/), eg: 192.168.1.0/30
+            try: 
+                network = ipaddress.IPv4Network(args.address, strict=False)  # validate if it's a CIDR network
 
                 totalAddress = 0
                 max_threads = 1024  # Set maximum number of threads to 10
                 ip_list = []
 
-                for ip in ipaddress.IPv4Network(args.address, False):
+                for ip in network:
                     ip_list.append(str(ip))
                     totalAddress += 1
 
@@ -172,7 +173,9 @@ Example:
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
                     executor.map(ping_test_wrapper, ip_list)
-        else:                             #Single IP address or hostname, instead of IP range
+            except ValueError as e:
+                print(f"Invalid CIDR address: {e}")
+        else:  # Single IP address or hostname, instead of IP range
             totalAddress += 1
             ping_test(args.address,ping_count)
 
