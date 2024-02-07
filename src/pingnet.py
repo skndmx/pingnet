@@ -15,7 +15,7 @@ from threading import Thread
 if "darwin" in platform:
      import resource # pylint: disable=import-error
 
-version = "0.4.4"
+version = "0.4.5"
 alive = []                              #Empty list to collect reachable hosts
 alive_avg = []                          #Empty list to collect reachable hosts + RTT
 dead = []                          #Empty list to collect unreachable hosts
@@ -109,11 +109,14 @@ Example:
     pingnet 192.168.1.0/24
     pingnet www.google.com
     pingnet 8.8.8.8 '''))
+    default_max_threads = 100 if "win32" in platform else 1000
     parser.add_argument("-n", "--count", nargs="?", action="store", help="number of echo requests to send, default 3")
+    parser.add_argument("-t", "--threads", nargs="?", type=int, default=default_max_threads, help=f"Maximum number of concurrent ping tasks, default {default_max_threads}")    
     parser.add_argument("-w", "--write", action="store_true", help="write results to txt files")
     parser.add_argument("-V", "--version", action="version", version="PingNet "+version)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     ping_count = args.count if args.count else "3" 
+    max_threads = args.threads
     print("\n"+" "*34+color.BOLD + "PingNet [v"+version+"]" + color.END)
     if "darwin" in platform:            #set "ulimit -n" higher for Mac, to avoid "OSError: [Errno 24] Too many open files"
         target_procs=50000
@@ -126,8 +129,8 @@ Example:
         ctypes.windll.msvcrt._setmaxstdio(2048)
     date = datetime.date.today()
     now = datetime.datetime.now()
-    
-    print("Number of ping requests: {0:41}{1}".format(ping_count,now.strftime("%Y/%m/%d %H:%M:%S")),end="")
+    print("Number of echo requests: {0:<3} |    Number of Threads: {1:<6} |     {2}".format(ping_count, max_threads, now.strftime("%Y/%m/%d %H:%M:%S")), end="")
+
     start_time = time.time()                 
     print("\nIP/Host {0:51} Min        Max        Avg {1}".format("",""))
     print("-------------------------------------------------------------------------------------")
@@ -137,7 +140,6 @@ Example:
     if args.file:                             #if argument -f is specified
         f = open(args.file, 'r')  # open file
         thread_list = []
-        max_threads = 1024
         def ping_all(ip_address):
             ping_test(str(ip_address), ping_count)
 
@@ -161,7 +163,6 @@ Example:
                 network = ipaddress.IPv4Network(args.address, strict=False)  # validate if it's a CIDR network
 
                 totalAddress = 0
-                max_threads = 1024  # Set maximum number of threads to 10
                 ip_list = []
 
                 for ip in network:
