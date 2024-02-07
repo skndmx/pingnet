@@ -6,3 +6,4 @@
 /src/test.py
 /202*.txt
 test*
+.pypirc
